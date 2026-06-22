@@ -122,6 +122,12 @@ extern void drawCommonHeader(OLEDDisplay *display, int16_t x, int16_t y, const c
 #endif
 
 #endif
+
+#if defined(HELTEC_TRACKER_V1_1) && __has_include(<DallasTemperature.h>) && __has_include(<OneWire.h>)
+#define HAS_DS18B20_SENSOR
+#include "Sensor/DS18B20Sensor.h"
+#endif
+
 #ifdef T1000X_SENSOR_EN
 #include "Sensor/T1000xSensor.h"
 #endif
@@ -189,6 +195,11 @@ void EnvironmentTelemetryModule::i2cScanFinished(ScanI2C *i2cScanner)
     addSensor<RCWL9620Sensor>(i2cScanner, ScanI2C::DeviceType::RCWL9620);
     addSensor<CGRadSensSensor>(i2cScanner, ScanI2C::DeviceType::CGRADSENS);
 #endif
+#endif
+
+#ifdef HAS_DS18B20_SENSOR
+    // Not a real I2C device, uses OneWire on GPIO 5
+    addSensor<DS18B20Sensor>(i2cScanner, ScanI2C::DeviceType::NONE);
 #endif
 
 #if !MESHTASTIC_EXCLUDE_ENVIRONMENTAL_SENSOR && !MESHTASTIC_EXCLUDE_ENVIRONMENTAL_SENSOR_EXTERNAL

@@ -36,8 +36,6 @@
 #include "modules/Modules.h"
 #include "sleep.h"
 #include "target_specific.h"
-#include <OneWire.h>
-#include <DallasTemperature.h>
 #include <memory>
 #include <utility>
 
@@ -166,12 +164,6 @@ SPIClass SPI1(HSPI);
 #endif
 
 using namespace concurrency;
-#define DS18B20_PIN 5
-
-OneWire oneWire(DS18B20_PIN);
-DallasTemperature ds18b20(&oneWire);
-uint32_t lastDS18B20Read = 0;
-bool ds18b20Started = false;
 volatile static const char slipstreamTZString[] = {USERPREFS_TZ_STRING};
 
 // We always create a screen object, but we only init it if we find the hardware
@@ -1592,25 +1584,6 @@ void loop()
     nrf52Loop();
 #endif
     power->powerCommandsCheck();
-
-     if (millis() > 20000 && !ds18b20Started) {
-        ds18b20.begin();
-        ds18b20Started = true;
-        LOG_INFO("DS18B20 initialized on GPIO %d", DS18B20_PIN);
-    }
-
-    if (ds18b20Started && millis() - lastDS18B20Read > 30000) {
-        lastDS18B20Read = millis();
-
-        ds18b20.requestTemperatures();
-        float tempC = ds18b20.getTempCByIndex(0);
-
-        if (tempC == DEVICE_DISCONNECTED_C) {
-            LOG_WARN("DS18B20 not detected on GPIO %d", DS18B20_PIN);
-        } else {
-            LOG_INFO("DS18B20 temperature: %.2f C", tempC);
-        }
-    }
 
 #ifdef DEBUG_STACK
     static uint32_t lastPrint = 0;
