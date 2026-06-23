@@ -2,11 +2,11 @@
 
 ## Overview
 
-This repository documents and provides a patch that adds DS18B20 1-Wire temperature sensor support to the Meshtastic Environment Telemetry module for the Heltec Wireless Tracker.
+This repository provides a small documentation and patch package that adds DS18B20 1-Wire temperature sensor support to the Meshtastic Environment Telemetry module for the Heltec Wireless Tracker.
 
 The DS18B20 temperature value is published through the standard Meshtastic `environment_metrics.temperature` field. No protobuf changes are required.
 
-The integration adds a dedicated Meshtastic telemetry sensor implementation and registers it for the Heltec Wireless Tracker target only.
+This is not a full Meshtastic firmware fork. It only contains the files needed to reproduce the integration on top of the official Meshtastic firmware release.
 
 ## Tested Hardware
 
@@ -36,6 +36,20 @@ v2.7.15.567b8ea
 
 The patch is intended to be applied on top of the official Meshtastic firmware tag above.
 
+## Repository Contents
+
+```text
+README.md
+ds18b20-heltec-wireless-tracker.patch
+files/
+  DS18B20Sensor.h
+  DS18B20Sensor.cpp
+logs/
+  serial-log-example.png
+```
+
+The `files/` directory contains copies of the added sensor source files for easy review. The patch file is the source of truth for applying the full integration to Meshtastic.
+
 ## Applying the Patch
 
 Clone the official Meshtastic firmware repository, check out the tested tag, initialize submodules, and apply the patch:
@@ -45,10 +59,16 @@ git clone https://github.com/meshtastic/firmware.git
 cd firmware
 git checkout v2.7.15.567b8ea
 git submodule update --init --recursive
+cp /path/to/ds18b20-heltec-wireless-tracker.patch .
 git apply ds18b20-heltec-wireless-tracker.patch
 ```
 
-Make sure `ds18b20-heltec-wireless-tracker.patch` is available in the firmware repository root before running `git apply`.
+The patch modifies:
+
+- `src/modules/Telemetry/EnvironmentTelemetry.cpp`
+- `src/modules/Telemetry/Sensor/DS18B20Sensor.h`
+- `src/modules/Telemetry/Sensor/DS18B20Sensor.cpp`
+- `variants/esp32s3/heltec_wireless_tracker/platformio.ini`
 
 ## Compiling
 
@@ -102,9 +122,9 @@ DS18B20 temperature: 24.94 C
 Send: barometric_pressure=0.000000, current=0.000000, gas_resistance=0.000000, relative_humidity=0.000000, temperature=24.940001
 ```
 
-A screenshot named `log` can be added here:
+Serial log screenshot:
 
-![Serial log example](images/log.png)
+![Serial log example](logs/serial-log-example.png)
 
 ## Notes / Limitations
 
