@@ -1,40 +1,115 @@
-<div align="center" markdown="1">
-
-<img src=".github/meshtastic_logo.png" alt="Meshtastic Logo" width="80"/>
-<h1>Meshtastic Firmware</h1>
-
-![GitHub release downloads](https://img.shields.io/github/downloads/meshtastic/firmware/total)
-[![CI](https://img.shields.io/github/actions/workflow/status/meshtastic/firmware/main_matrix.yml?branch=master&label=actions&logo=github&color=yellow)](https://github.com/meshtastic/firmware/actions/workflows/ci.yml)
-[![CLA assistant](https://cla-assistant.io/readme/badge/meshtastic/firmware)](https://cla-assistant.io/meshtastic/firmware)
-[![Fiscal Contributors](https://opencollective.com/meshtastic/tiers/badge.svg?label=Fiscal%20Contributors&color=deeppink)](https://opencollective.com/meshtastic/)
-[![Vercel](https://img.shields.io/static/v1?label=Powered%20by&message=Vercel&style=flat&logo=vercel&color=000000)](https://vercel.com?utm_source=meshtastic&utm_campaign=oss)
-
-<a href="https://trendshift.io/repositories/5524" target="_blank"><img src="https://trendshift.io/api/badge/repositories/5524" alt="meshtastic%2Ffirmware | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
-
-</div>
-
-</div>
-
-<div align="center">
-	<a href="https://meshtastic.org">Website</a>
-	-
-	<a href="https://meshtastic.org/docs/">Documentation</a>
-</div>
+# DS18B20 Temperature Telemetry for Meshtastic Heltec Wireless Tracker
 
 ## Overview
 
-This repository contains the official device firmware for Meshtastic, an open-source LoRa mesh networking project designed for long-range, low-power communication without relying on internet or cellular infrastructure. The firmware supports various hardware platforms, including ESP32, nRF52, RP2040/RP2350, and Linux-based devices.
+This repository documents and provides a patch that adds DS18B20 1-Wire temperature sensor support to the Meshtastic Environment Telemetry module for the Heltec Wireless Tracker.
 
-Meshtastic enables text messaging, location sharing, and telemetry over a decentralized mesh network, making it ideal for outdoor adventures, emergency preparedness, and remote operations.
+The DS18B20 temperature value is published through the standard Meshtastic `environment_metrics.temperature` field. No protobuf changes are required.
 
-### Get Started
+The integration adds a dedicated Meshtastic telemetry sensor implementation and registers it for the Heltec Wireless Tracker target only.
 
-- 🔧 **[Building Instructions](https://meshtastic.org/docs/development/firmware/build)** – Learn how to compile the firmware from source.
-- ⚡ **[Flashing Instructions](https://meshtastic.org/docs/getting-started/flashing-firmware/)** – Install or update the firmware on your device.
+## Tested Hardware
 
-Join our community and help improve Meshtastic! 🚀
+- Heltec Wireless Tracker
+- PCB marking: HTIT-Tracker V1.2
+- Meshtastic target: `heltec-wireless-tracker`
+- Detected by Meshtastic as Heltec Wireless Tracker V1.1
+- ESP32-S3
+- DS18B20 temperature sensor, 3-wire mode
 
-## Stats
+## Wiring
 
-![Alt](https://repobeats.axiom.co/api/embed/8025e56c482ec63541593cc5bd322c19d5c0bdcf.svg "Repobeats analytics image")
+| DS18B20 / component | Heltec Wireless Tracker |
+| --- | --- |
+| DS18B20 VDD | 3.3V |
+| DS18B20 GND | GND |
+| DS18B20 DATA | GPIO 5 |
+| 4.7 kOhm resistor | Between DATA and 3.3V |
 
+## Meshtastic Version
+
+This patch was developed and tested with:
+
+```text
+v2.7.15.567b8ea
+```
+
+The patch is intended to be applied on top of the official Meshtastic firmware tag above.
+
+## Applying the Patch
+
+Clone the official Meshtastic firmware repository, check out the tested tag, initialize submodules, and apply the patch:
+
+```bash
+git clone https://github.com/meshtastic/firmware.git
+cd firmware
+git checkout v2.7.15.567b8ea
+git submodule update --init --recursive
+git apply ds18b20-heltec-wireless-tracker.patch
+```
+
+Make sure `ds18b20-heltec-wireless-tracker.patch` is available in the firmware repository root before running `git apply`.
+
+## Compiling
+
+Build the Heltec Wireless Tracker PlatformIO environment:
+
+```bash
+pio run -e heltec-wireless-tracker
+```
+
+## Flashing
+
+Flash this file:
+
+```text
+.pio/build/heltec-wireless-tracker/firmware.bin
+```
+
+Do not flash `firmware.factory.bin` for this use case. Use `firmware.bin`.
+
+## Meshtastic Configuration
+
+Enable Environment Telemetry in the Meshtastic application:
+
+```text
+Settings
+-> Module Configuration
+-> Telemetry
+-> Enable Environment Telemetry
+```
+
+Also configure:
+
+```text
+Environment metrics update interval
+```
+
+For example:
+
+```text
+60 seconds
+```
+
+## Serial Log Example
+
+Expected serial log lines include:
+
+```text
+Init sensor: DS18B20 on GPIO 5
+DS18B20 initialized on GPIO 5
+DS18B20 temperature: 24.94 C
+Send: barometric_pressure=0.000000, current=0.000000, gas_resistance=0.000000, relative_humidity=0.000000, temperature=24.940001
+```
+
+A screenshot named `log` can be added here:
+
+![Serial log example](images/log.png)
+
+## Notes / Limitations
+
+- GPIO 5 is currently hardcoded.
+- The integration is limited to `HELTEC_TRACKER_V1_1`.
+- This is not yet a generic implementation ready for official upstream inclusion in Meshtastic.
+- Data is sent through standard Meshtastic Environment Telemetry packets.
+- Other Meshtastic nodes on the same channel can receive this telemetry.
