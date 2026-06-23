@@ -1,21 +1,21 @@
-# DS18B20 Temperature Telemetry for Meshtastic Heltec Wireless Tracker
+# DS18B20 Text Commands for Meshtastic Heltec Wireless Tracker
 
 ## Overview
 
-This repository provides a small documentation and patch package that adds DS18B20 1-Wire temperature sensor support to the Meshtastic Environment Telemetry module for the Heltec Wireless Tracker.
+This repository provides a small documentation and patch package that adds DS18B20 temperature sensor support to Meshtastic on the Heltec Wireless Tracker.
 
-The DS18B20 temperature value is published through the standard Meshtastic `environment_metrics.temperature` field. No protobuf changes are required.
+The integration uses normal Meshtastic text messages. The node does not send temperature automatically. It answers only when it receives a command such as `/temp`.
 
 This is not a full Meshtastic firmware fork. It only contains the files needed to reproduce the integration on top of the official Meshtastic firmware release.
 
 ## Tested Hardware
 
 - Heltec Wireless Tracker
-- PCB marking: HTIT-Tracker V1.2
+- PCB marking: `HTIT-Tracker V1.2`
 - Meshtastic target: `heltec-wireless-tracker`
-- Detected by Meshtastic as Heltec Wireless Tracker V1.1
+- Detected by Meshtastic as `Heltec Wireless Tracker V1.1`
 - ESP32-S3
-- DS18B20 temperature sensor, 3-wire mode
+- One or more DS18B20 temperature sensors, 3-wire mode
 
 ## Wiring
 
@@ -25,6 +25,8 @@ This is not a full Meshtastic firmware fork. It only contains the files needed t
 | DS18B20 GND | GND |
 | DS18B20 DATA | GPIO 5 |
 | 4.7 kOhm resistor | Between DATA and 3.3V |
+
+Multiple DS18B20 sensors can share the same 1-Wire DATA line on GPIO 5.
 
 ## Meshtastic Version
 
@@ -40,15 +42,10 @@ The patch is intended to be applied on top of the official Meshtastic firmware t
 
 ```text
 README.md
-ds18b20-heltec-wireless-tracker.patch
-files/
-  DS18B20Sensor.h
-  DS18B20Sensor.cpp
+ds18b20-multi-sensor-text-commands.patch
 logs/
   serial-log-example.png
 ```
-
-The `files/` directory contains copies of the added sensor source files for easy review. The patch file is the source of truth for applying the full integration to Meshtastic.
 
 ## Applying the Patch
 
@@ -59,15 +56,16 @@ git clone https://github.com/meshtastic/firmware.git
 cd firmware
 git checkout v2.7.15.567b8ea
 git submodule update --init --recursive
-cp /path/to/ds18b20-heltec-wireless-tracker.patch .
-git apply ds18b20-heltec-wireless-tracker.patch
+cp /path/to/ds18b20-multi-sensor-text-commands.patch .
+git apply ds18b20-multi-sensor-text-commands.patch
 ```
 
 The patch modifies:
 
-- `src/modules/Telemetry/EnvironmentTelemetry.cpp`
-- `src/modules/Telemetry/Sensor/DS18B20Sensor.h`
-- `src/modules/Telemetry/Sensor/DS18B20Sensor.cpp`
+- `src/mesh/MeshService.cpp`
+- `src/mesh/MeshService.h`
+- `src/modules/TextMessageModule.cpp`
+- `src/modules/TextMessageModule.h`
 - `variants/esp32s3/heltec_wireless_tracker/platformio.ini`
 
 ## Compiling
@@ -88,48 +86,99 @@ Flash this file:
 
 Do not flash `firmware.factory.bin` for this use case. Use `firmware.bin`.
 
-## Meshtastic Configuration
+## Text Commands
 
-Enable Environment Telemetry in the Meshtastic application:
+Send these commands as normal Meshtastic text messages. The node answers on demand only.
 
-```text
-Settings
--> Module Configuration
--> Telemetry
--> Enable Environment Telemetry
-```
+### /list
 
-Also configure:
+Scans the 1-Wire bus and returns each detected DS18B20 sensor with:
 
-```text
-Environment metrics update interval
-```
+- a temporary index;
+- the full 64-bit ROM address in hexadecimal;
+- the saved name, or `unassigned`.
 
-For example:
+Example:
 
 ```text
-60 seconds
+1) 28FF641D9716035C -> 1m
+2) 28FFA27B96160391 -> 2m
+3) 28FF0C88951603A7 -> unassigned
 ```
 
-## Serial Log Example
+The index is temporary and comes from the latest `/list` result.
 
-Expected serial log lines include:
+### /register <index|address> <name>
+
+Saves a sensor name in ESP32 NVS/Preferences.
+
+The sensor identifier can be either:
+
+- the temporary index from the latest `/list`;
+- the full ROM address.
+
+Examples:
 
 ```text
-Init sensor: DS18B20 on GPIO 5
-DS18B20 initialized on GPIO 5
-DS18B20 temperature: 24.94 C
-Send: barometric_pressure=0.000000, current=0.000000, gas_resistance=0.000000, relative_humidity=0.000000, temperature=24.940001
+/register 1 1m
+/register 28FF641D9716035C surface
 ```
 
-Serial log screenshot:
+Name rules:
 
-![Serial log example](logs/serial-log-example.png)
+- maximum 16 characters;
+- no spaces;
+- allowed characters: letters, numbers, `-`, `_`.
+
+### /temp
+
+Reads all registered sensors.
+
+Example:
+
+```text
+1m : 12.4 °C
+2m : 11.8 °C
+```
+
+If a registered sensor is not currently detected:
+
+```text
+1m : not detected
+```
+
+### /temp <name|address|index>
+
+Reads only one sensor.
+
+Examples:
+
+```text
+/temp 1m
+/temp surface
+/temp 28FF641D9716035C
+/temp 1
+```
+
+If the argument is an index, it refers to the latest `/list` result.
+
+### /clear_memory
+
+Clears all saved sensor names from ESP32 NVS/Preferences.
+
+Response:
+
+```text
+Sensor memory cleared.
+Use /list then /register <index> <name>.
+```
 
 ## Notes / Limitations
 
 - GPIO 5 is currently hardcoded.
 - The integration is limited to `HELTEC_TRACKER_V1_1`.
 - This is not yet a generic implementation ready for official upstream inclusion in Meshtastic.
-- Data is sent through standard Meshtastic Environment Telemetry packets.
-- Other Meshtastic nodes on the same channel can receive this telemetry.
+- The feature uses normal Meshtastic text messages, not Environment Telemetry.
+- Temperature is never sent automatically.
+- Replies are sent through the mesh without the extra local `toPhone` queue status notification used by normal local sends.
+- A simple 5-second throttle prevents repeated command spam.
