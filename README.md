@@ -2,11 +2,9 @@
 
 ## Overview
 
-This repository provides a small documentation and patch package that adds DS18B20 temperature sensor support to Meshtastic on the Heltec Wireless Tracker.
+This repository provides a small documentation complete firmware that adds DS18B20 temperature sensor support to Meshtastic on the Heltec Wireless Tracker V1.X.
 
 The integration uses normal Meshtastic text messages. The node does not send temperature automatically. It answers only when it receives a command such as `/temp`.
-
-This is not a full Meshtastic firmware fork. It only contains the files needed to reproduce the integration on top of the official Meshtastic firmware release.
 
 ## Tested Hardware
 
@@ -38,35 +36,15 @@ v2.7.15.567b8ea
 
 The patch is intended to be applied on top of the official Meshtastic firmware tag above.
 
-## Repository Contents
-
-```text
-README.md
-ds18b20-multi-sensor-text-commands.patch
-logs/
-  serial-log-example.png
-```
 
 ## Applying the Patch
 
 Clone the official Meshtastic firmware repository, check out the tested tag, initialize submodules, and apply the patch:
 
 ```bash
-git clone https://github.com/meshtastic/firmware.git
-cd firmware
-git checkout v2.7.15.567b8ea
-git submodule update --init --recursive
-cp /path/to/ds18b20-multi-sensor-text-commands.patch .
-git apply ds18b20-multi-sensor-text-commands.patch
+git clone https:https://github.com/Loanb/meshtastic-heltec-wireless-tracker-ds18b20-complete-firmware
+cd meshtastic-heltec-wireless-tracker-ds18b20-complete-firmware
 ```
-
-The patch modifies:
-
-- `src/mesh/MeshService.cpp`
-- `src/mesh/MeshService.h`
-- `src/modules/TextMessageModule.cpp`
-- `src/modules/TextMessageModule.h`
-- `variants/esp32s3/heltec_wireless_tracker/platformio.ini`
 
 ## Compiling
 
